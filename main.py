@@ -11,7 +11,6 @@ import openpyxl
 from openpyxl.styles import Font, Alignment, Border, Side, PatternFill
 import subprocess
 import platform
-import pandas as pd
 
 def format_sales_orders_custom(input_path, output_path, selected_items, report_title, remove_empty=True):
     wb_src = openpyxl.load_workbook(input_path, data_only=True)
@@ -202,7 +201,7 @@ class App:
         self.root.resizable(False, False)
         
         self.current_files = []
-        self.txt_converter_files = [] # قائمة ملفات محول الـ TXT
+        self.txt_converter_files = []
 
         # --- قسم منسق طلبات الأمين (البرنامج الرئيسي) ---
         lbl_title = tk.Label(root, text='منسق ملفات الأمين للطابعة الحرارية (8سم)', font=('Arial', 13, 'bold'))
@@ -384,7 +383,7 @@ class App:
             msg += '\nوتم إرسالها للطباعة المباشرة على الطابعة الحرارية.'
         messagebox.showinfo('نجاح تام', msg)
 
-    # --- دوال أداة تحويل الـ TXT المستقلة بالزرين الأخضر والأزرق ---
+    # --- دوال أداة تحويل الـ TXT باستخدام openpyxl فقط ---
     def load_txt_files_dialog(self):
         file_paths = filedialog.askopenfilenames(filetypes=[('Excel Files', '*.xlsx *.xls')])
         if not file_paths:
@@ -403,12 +402,18 @@ class App:
         success_count = 0
         try:
             for file_path in self.txt_converter_files:
-                df = pd.read_excel(file_path)
+                wb = openpyxl.load_workbook(file_path, data_only=True)
+                ws = wb.active
+                
                 base_name = os.path.splitext(os.path.basename(file_path))[0]
                 out_txt_path = os.path.join(output_dir, f'{base_name}.txt')
                 
-                # تصدير الملف بصيغة نصية متوافقة Unicode (utf-16 أو utf-8 حسب حاجة برنامج الأمين)
-                df.to_csv(out_txt_path, sep='\t', index=False, encoding='utf-16')
+                with open(out_txt_path, 'w', encoding='utf-16') as f:
+                    for row in ws.iter_rows(values_only=True):
+                        if any(row):
+                            row_vals = [str(v) if v is not None else '' for v in row]
+                            f.write('\t'.join(row_vals) + '\n')
+                            
                 success_count += 1
                 
             messagebox.showinfo('نجاح التحويل', f'تم تحويل {success_count} ملف بنجاح!\nموجودة الآن في مجلد (ملفات_TXT_الأمين) على سطح المكتب.')
